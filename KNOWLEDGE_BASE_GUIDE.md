@@ -233,21 +233,21 @@ Track completion status here. Update as docs are filled in:
 
 | Doc | Status | Notes |
 |-----|--------|-------|
-| MASTER_INDEX.md | ❌ Not created | Needs keyword routing table |
+| MASTER_INDEX.md | ✅ Created | Keyword routing table, domain map, repo map, quick reference |
 | ARCHITECTURE.md | ✅ Substantial | ~266 lines |
 | TECH_STACK.md | ✅ Substantial | ~191 lines |
 | REPO_MAP.md | ❌ Not created | Needs all repos documented |
 | FULL_SCHEMA.md | ⚠️ Partial | ~352 lines, only ~15 core tables. Needs ALL tables from migrations |
 | ENTITY_RELATIONSHIPS.md | ⚠️ Partial | ~211 lines. Needs complete FK map |
 | TASK_LIFECYCLE.md | ✅ Substantial | ~692 lines |
-| CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (was CLINICAL.md, should rename) |
-| AI_SYSTEM.md | ❌ Not created | Needs full AI documentation |
-| BILLING_AND_CREDITS.md | ❌ Not created | Needs billing pipeline exploration |
-| USERS_AND_AUTH.md | ❌ Not created | Needs auth + caregiver deep dive |
-| PATIENTS.md | ❌ Not created | Needs patient entity deep dive |
-| CONTRACTS_AND_AGENCIES.md | ❌ Not created | Needs contract setup documentation |
-| NOTIFICATIONS_AND_COMMS.md | ❌ Not created | Needs comms infrastructure |
-| RN_MOBILE_APP.md | ❌ Not created | Needs mobile app documentation |
+| CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (renamed from CLINICAL.md) |
+| AI_SYSTEM.md | ✅ Created | ~350 lines. 26 AI questions, review system, POC rules engine, ICD codes, CMS-485 mapping |
+| BILLING_AND_CREDITS.md | ⚠️ Partial | ~130 lines. Credits, authorizations, pay rates. Needs billing flow deep dive |
+| USERS_AND_AUTH.md | ⚠️ Partial | ~100 lines. Three user types, auth, certifications, RN matching. Needs roles deep dive |
+| PATIENTS.md | ✅ Created | ~250 lines. 6 profile tabs, 12 statuses, cert periods, diagnosis codes, schema |
+| CONTRACTS_AND_AGENCIES.md | ✅ Created | ~180 lines. Setup fields, billing/rounding, EDI, issue types, template overrides |
+| NOTIFICATIONS_AND_COMMS.md | ✅ Created | ~130 lines. SMS, FCM, Socket.IO, telephony agent |
+| RN_MOBILE_APP.md | ✅ Created | ~200 lines. 25+ question types, 4 AI features, answer saving, signatures |
 | START_OF_CARE_FLOW.md | ❌ Not created | Needs end-to-end flow |
 | REASSESSMENT_FLOW.md | ❌ Not created | Needs flow documentation |
 | SUPERVISORY_VISIT_FLOW.md | ❌ Not created | Needs flow documentation |
