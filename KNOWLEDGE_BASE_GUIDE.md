@@ -110,6 +110,30 @@ Every integration doc MUST include:
 
 ## 5. How to Maintain the Knowledge Base During Every Session
 
+### CRITICAL RULE: Cascade Updates
+**Every time you add, change, or remove content in ANY knowledge base file, you MUST think thoroughly about ALL other files that may be affected and update them too.** The knowledge base is interconnected — a change in one place almost always requires changes in others.
+
+**Examples of cascade updates:**
+- You update a table schema in FULL_SCHEMA.md → also update ENTITY_RELATIONSHIPS.md + the domain doc that owns that table + any workflow doc that references that table
+- You discover a business rule belongs to a different domain → move it from the old domain doc to the new one + update MASTER_INDEX.md keyword routing if needed
+- You learn an API endpoint changed → update the domain doc + the workflow doc that references it + ARCHITECTURE.md if it affects system-level routing
+- You add a new domain doc → update MASTER_INDEX.md (routing table + domain map + repo map) + KNOWLEDGE_BASE_GUIDE.md (Section 3 + Section 8)
+
+**Never update a single file in isolation.** Always ask: "What other files reference or depend on what I just changed?"
+
+### CRITICAL RULE: Replace Stale Data — Don't Pile On
+**When you learn something new that contradicts or supersedes existing documentation, DELETE the old/incorrect content and replace it with the fresh data.** Do this in the file you're working on AND in every other file that contains the stale information.
+
+**Do NOT:**
+- Add new content while leaving contradictory old content in place
+- Add "UPDATE:" or "NOTE: this has changed" annotations — just fix the actual content
+- Keep outdated examples, file paths, enum values, or business rules around "for reference"
+
+**DO:**
+- Find and remove every instance of the stale data across ALL knowledge base files
+- Replace with the current, accurate information
+- If you're unsure whether old data is stale or still valid, verify against the actual codebase before removing
+
 ### When starting a session:
 1. Read `MASTER_INDEX.md` to understand the full structure
 2. Read the domain docs relevant to your current task
@@ -122,13 +146,17 @@ Keep a mental list of new things you learn:
 - An edge case or gotcha that isn't documented
 - A code pattern that's commonly used
 - A correction to something that's wrong in the docs
+- Something in the docs that is WRONG or OUTDATED and needs to be fixed
 
 ### Before ending a session:
 1. **Update** the relevant domain/workflow docs with what you learned
-2. **Add** new entries to MASTER_INDEX.md keyword routing table if needed
-3. **Create** new docs if you discovered a whole new area that isn't covered
-4. **Split** any doc that exceeded ~40 pages — create sub-docs and update MASTER_INDEX.md
-5. **Commit and push**:
+2. **Cascade** — for every change you made, check ALL other files for related content that needs updating
+3. **Delete stale data** — if your new knowledge contradicts existing docs, find and replace the old info everywhere
+4. **Add** new entries to MASTER_INDEX.md keyword routing table if needed
+5. **Create** new docs if you discovered a whole new area that isn't covered
+6. **Split** any doc that exceeded ~40 pages — create sub-docs and update MASTER_INDEX.md
+7. **Update Section 8** of this guide if you completed or partially completed any doc
+8. **Commit and push**:
    ```bash
    cd /tmp/task-health-docs
    git add -A
@@ -136,14 +164,16 @@ Keep a mental list of new things you learn:
    git push
    ```
 
-### What to update:
-- **New table discovered?** → Add to FULL_SCHEMA.md + ENTITY_RELATIONSHIPS.md + relevant domain doc
-- **New business rule found in code?** → Add to relevant domain doc under "Business Rules"
-- **New API endpoint used?** → Add to relevant domain doc under "API Endpoints"
-- **Bug caused by non-obvious behavior?** → Add to relevant domain doc under "Edge Cases & Gotchas"
-- **New integration or service discovered?** → Add integration doc or update existing one
-- **Workflow step was wrong or incomplete?** → Fix the workflow doc
-- **New repo or service created?** → Update REPO_MAP.md + ARCHITECTURE.md + MASTER_INDEX.md
+### What to update (with cascade checklist):
+- **New table discovered?** → Add to FULL_SCHEMA.md + ENTITY_RELATIONSHIPS.md + relevant domain doc + check if any workflow doc references related tables
+- **New business rule found in code?** → Add to relevant domain doc under "Business Rules" + check if it affects workflow docs or other domain docs
+- **New API endpoint used?** → Add to relevant domain doc under "API Endpoints" + check if ARCHITECTURE.md needs updating
+- **Bug caused by non-obvious behavior?** → Add to relevant domain doc under "Edge Cases & Gotchas" + check if other domains have the same gotcha
+- **New integration or service discovered?** → Add integration doc + update ARCHITECTURE.md + TECH_STACK.md + MASTER_INDEX.md
+- **Workflow step was wrong or incomplete?** → Fix the workflow doc + check if the domain doc has conflicting info
+- **New repo or service created?** → Update REPO_MAP.md + ARCHITECTURE.md + TECH_STACK.md + MASTER_INDEX.md
+- **Table schema changed?** → Update FULL_SCHEMA.md + ENTITY_RELATIONSHIPS.md + every domain doc that references those columns + every workflow doc that touches that table
+- **Enum values changed?** → Update FULL_SCHEMA.md + every domain doc that references that enum
 
 ---
 
