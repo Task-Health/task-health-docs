@@ -252,10 +252,10 @@ Track completion status here. Update as docs are filled in:
 | REASSESSMENT_FLOW.md | ✅ Created | ~120 lines. Differences from SOC, recurrence cycle, cert period continuity |
 | SUPERVISORY_VISIT_FLOW.md | ✅ Created | ~150 lines. POC↔Supervisory mapping, duty evaluation, code paths |
 | NURSE_ONBOARDING_FLOW.md | ✅ Created | ~100 lines. 5-step flow, HR infrastructure, compliance, open areas |
-| STRIPE.md | ❌ Not created | Needs code exploration |
-| SENDGRID.md | ❌ Not created | Needs code exploration |
-| GOOGLE_CALENDAR.md | ❌ Not created | Needs code exploration |
-| WHATSAPP.md | ❌ Not created | Needs code exploration |
+| STRIPE.md | ✅ Created | ~180 lines. 3 Stripe accounts, credit orders, webhooks, charging, code paths |
+| SENDGRID.md | ✅ Created | ~80 lines. Email delivery, comm center emails, template rendering |
+| GOOGLE_CALENDAR.md | ✅ Created | ~80 lines. Interview scheduling, Zoom integration, free/busy queries |
+| WHATSAPP.md | ✅ Created | ~50 lines. Minimal — boolean flag on Twilio SMS infrastructure |
 
 **When you complete a doc, update this table.**
 
