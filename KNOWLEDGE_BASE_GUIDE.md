@@ -30,6 +30,7 @@ task-health-docs/
 │   ├── FULL_SCHEMA.md                     ← Every database table, every column, every constraint
 │   └── ENTITY_RELATIONSHIPS.md            ← FK map, junction tables, ERD, common JOIN patterns
 ├── 03-domains/
+│   ├── DOCUMENT_VERSIONING.md            ← Version locking, two-layer versioning, dev checklists
 │   ├── TASK_LIFECYCLE.md                  ← Templates → Tasks → Instances → Visits, broadcasting, assignment
 │   ├── CLINICAL_DOCUMENTS.md              ← All documents, form builder, PDF generation, cross-doc flow
 │   ├── AI_SYSTEM.md                       ← AI generation, review system, POC rules engine, ICD codes
@@ -58,6 +59,7 @@ task-health-docs/
 
 | Domain | File | What It Covers |
 |--------|------|---------------|
+| **Document Versioning** | `DOCUMENT_VERSIONING.md` | Document template versioning — snapshot-based version locking, two-layer versioning (DB content JSONB vs code adapter versions v1-v10), lazy locking at first RN touch, parallel version coexistence, form builder publish workflow, cross-document version compatibility, development checklists for safe updates. |
 | **Task Lifecycle** | `TASK_LIFECYCLE.md` | Task Templates → Tasks → Task Instances → Visit Instances. Broadcasting, RN assignment, scheduling, status transitions (Unassigned → Broadcasting → Assigned → Scheduled → Completed). The full 10-step creation pipeline. Certification periods. |
 | **Clinical Documents** | `CLINICAL_DOCUMENTS.md` | The entire document system — Patient Assessment (v10, 8 pages), POC (v7, 42 duties), CMS-485 (28 fields), Emergency Kardex, Welcome Package, Aide Supervisory. Form builder, document templates, all 3 PDF generation pipelines, cross-document nursing database questions (61 DatabaseLinkType values), document versioning, agency branding. |
 | **AI System** | `AI_SYSTEM.md` | All AI capabilities — 26 AI-generated questions, AI review system (20 section rules, HARD vs SUGGESTED, 7 medication-diagnosis clusters), POC rules engine (673-line deterministic prompt, 27 derived flags), ICD code generation, 5 invisible auto-generated questions, teaching narratives, lock hints/prerequisites. |
@@ -241,7 +243,8 @@ Track completion status here. Update as docs are filled in:
 | ENTITY_RELATIONSHIPS.md | ✅ Substantial | ~350 lines. Full ERD, 9 junction tables, 8 relationship patterns, FK index reference |
 | TASK_LIFECYCLE.md | ✅ Substantial | ~692 lines |
 | CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (renamed from CLINICAL.md) |
-| AI_SYSTEM.md | ✅ Substantial | ~750 lines. 36 generation rules, 20 review rules with actual prompt content, full POC rules engine (27 flags, 42 duties, all IF/THEN rules), complete file inventory |
+| AI_SYSTEM.md | ✅ Substantial | ~770 lines. 36 generation rules, 20 review rules with actual prompt content, full POC rules engine, version-specific AI rules section |
+| DOCUMENT_VERSIONING.md | ✅ Created | ~450 lines. Snapshot-based versioning, lazy locking, two-layer system, form builder workflow, dev checklists, decision matrix |
 | BILLING_AND_CREDITS.md | ✅ Substantial | ~220 lines. Credit flow, invoice chain, billing rates, service/payroll codes, pay rate hierarchy |
 | USERS_AND_AUTH.md | ✅ Substantial | ~220 lines. Auth tokens, roles/permissions, caregiver profile, multi-agency, gotchas |
 | PATIENTS.md | ✅ Created | ~250 lines. 6 profile tabs, 12 statuses, cert periods, diagnosis codes, schema |

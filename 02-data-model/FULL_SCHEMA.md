@@ -834,36 +834,49 @@ Migration: V0163, V1396
 
 ## patient_documents_types_versions
 
-Description: Versioned form content. Each version holds the full form-builder JSON. Only one version is published per document type.
-Migration: V0163
+Description: Versioned form content. Each version holds the full form-builder JSON. The system selects the highest `isPublished = TRUE` version for new tasks. Version locks at first RN interaction (lazy locking). See [DOCUMENT_VERSIONING.md](../03-domains/DOCUMENT_VERSIONING.md).
+Migration: V0163, V1435
 
 | Column | Type | Nullable | FK | Description |
 |--------|------|----------|-----|-------------|
-| id | SERIAL PK | NOT NULL | | |
+| id | SERIAL PK | NOT NULL | | Higher ID = newer version |
 | patientDocumentTypeId | INT | NOT NULL | patient_documents_types(id) | |
 | content | JSONB | YES | | Form builder JSON (PatientDocumentContentItem tree) |
-| isPublished | BOOLEAN | NOT NULL | | Active version flag |
-| html_template_version_id | INT | YES | | HTML template link |
+| isPublished | BOOLEAN | NOT NULL (default FALSE) | | FALSE = draft, TRUE = available for new tasks |
+| html_template_version_id | INT | YES | | Links to TypeScript adapter code version (v1-v10) |
+| createdAt | TIMESTAMPTZ | NOT NULL | | |
+| updatedAt | TIMESTAMPTZ | YES | | |
+| removedAt | TIMESTAMPTZ | YES | | Soft delete |
+
+Version selection: `SELECT id FROM ... WHERE isPublished = TRUE ORDER BY id DESC LIMIT 1`
 
 ---
 
-## patient_documents_scheduled_visit
+## patient_documents_scheduled
 
-Description: Links a document type to a specific visit for a caregiver to fill. This is the per-visit document instance.
-Migration: V0163
+Description: Per-task/visit document instance. **This is where the version gets locked.** Created lazily at first RN interaction via `findOrCreateScheduledDocId()`. Once created, `version_id` is frozen — template updates do not affect this row. Renamed from `patient_documents_scheduled_visit` in V0752.
+Migration: V0163, V0283, V0504, V0752
 
 | Column | Type | Nullable | FK | Description |
 |--------|------|----------|-----|-------------|
 | id | SERIAL PK | NOT NULL | | |
-| caregiverId | INT | NOT NULL | caregiver(id) | |
-| patientDocumentTypeId | INT | NOT NULL | patient_documents_types(id) | |
-| versionId | INT | NOT NULL | patient_documents_types_versions(id) | |
-| visitId | INT | NOT NULL | visit(id) | |
-| scheduledVisitId | INT | NOT NULL | scheduled_visit(id) | |
-| submittedAt | TIMESTAMPTZ | YES | | When RN submitted |
-| fileUrl | TEXT | YES | | Generated PDF URL |
+| caregiver_id | INT | YES | caregiver(id) | Nullable — allows pre-assignment scheduling |
+| patient_document_type_id | INT | YES | patient_documents_types(id) | |
+| version_id | INT | YES | patient_documents_types_versions(id) | **THE LOCKED VERSION** — nullable for legacy rows (falls back to latest) |
+| task_instance_id | INT | YES | patient_task_instance(id) | |
+| visit_instance_id | INT | YES | visit_instance(id) | |
+| patient_id | INT | YES | patient(id) | Denormalized for fast queries |
+| agency_member_id | INT | YES | agency_member(id) | For agency submissions |
+| created_at | TIMESTAMPTZ | NOT NULL | | |
+| submitted_at | TIMESTAMPTZ | YES | | When RN submitted |
+| approved_at | TIMESTAMPTZ | YES | | When admin approved |
+| updated_at | TIMESTAMPTZ | YES | | |
+| removed_at | TIMESTAMPTZ | YES | | Soft delete |
+| file_url | TEXT | YES | | Generated PDF URL |
+| document_scanned | BOOLEAN | | | Free-form scan flag |
+| document_title | TEXT | YES | | For free scans |
 
-Constraints: UNIQUE(scheduledVisitId, patientDocumentTypeId)
+Constraints: UNIQUE(caregiverId, patientDocumentTypeId, versionId, task_instance_id)
 
 ---
 

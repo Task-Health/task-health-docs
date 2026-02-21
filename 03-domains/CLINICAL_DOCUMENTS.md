@@ -10,7 +10,7 @@ The clinical domain covers everything related to clinical document creation, com
 4. **PDF generation** -- A Lambda function takes the stored answers, merges them with an HTML or PDF template, injects agency branding, and produces a downloadable PDF.
 5. **Delivery** -- The PDF is stored in S3, available in the admin panel and agency portal, and optionally sent to the patient and caregiver via SMS.
 
-All clinical documents are versioned. Each document template can have multiple versions, and the PDF footer prints the version number for traceability.
+All clinical documents are versioned. Each document template can have multiple versions, and the PDF footer prints the version number for traceability. **See [DOCUMENT_VERSIONING.md](DOCUMENT_VERSIONING.md) for the full versioning system — version locking, two-layer versioning, parallel versions, and development checklists.**
 
 ---
 

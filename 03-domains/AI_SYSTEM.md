@@ -54,7 +54,27 @@ const rule = createQuestionGenerationRule({
 - User prompts dynamically injected from `formatQuestionGroups()` or section summaries
 - Three rule creator functions: `createQuestionGenerationRule()`, `createQuestionGenerationAsInputRule()`, `createFinalReviewRule()`
 
-### 1.3 Data Injection Patterns
+### 1.3 AI Rules Are Version-Specific
+
+**Every code version has its own complete set of AI rules.** A task locked to v9 uses v9's rules; a task on v10 uses v10's rules. They never interfere.
+
+**Version registries** (in each document type's `index.ts`):
+```typescript
+patientAssessmentDocumentGenerationRules = {
+    4: patientAssessmentV4GenerationRules,   // 31 rules
+    5: patientAssessmentV5GenerationRules,   // 75 rules
+    // ... through v10 (36 rules + 20 review rules)
+};
+```
+
+**Why this matters for development:**
+- **Bug fixes in AI rules cannot reach old versions.** If v9's Functional Limitations rule incorrectly triggers "Ambulation," you can fix it in v10 — but v9 tasks keep the bug.
+- **NEVER modify an existing version's rules if tasks are active on it** — this could invalidate already-generated AI answers.
+- **When form questions change (add/remove/rename), AI rules MUST be updated** — rules reference specific `htmlTemplateId` values and string-match answer options. A renamed answer option causes silent failures.
+
+See [DOCUMENT_VERSIONING.md](DOCUMENT_VERSIONING.md) for the full versioning system and development checklists.
+
+### 1.4 Data Injection Patterns
 
 | Rule Type | Data Source | Injection Method |
 |-----------|------------|------------------|
