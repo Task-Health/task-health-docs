@@ -241,7 +241,7 @@ Track completion status here. Update as docs are filled in:
 | ENTITY_RELATIONSHIPS.md | ✅ Substantial | ~350 lines. Full ERD, 9 junction tables, 8 relationship patterns, FK index reference |
 | TASK_LIFECYCLE.md | ✅ Substantial | ~692 lines |
 | CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (renamed from CLINICAL.md) |
-| AI_SYSTEM.md | ✅ Created | ~350 lines. 26 AI questions, review system, POC rules engine, ICD codes, CMS-485 mapping |
+| AI_SYSTEM.md | ✅ Substantial | ~750 lines. 36 generation rules, 20 review rules with actual prompt content, full POC rules engine (27 flags, 42 duties, all IF/THEN rules), complete file inventory |
 | BILLING_AND_CREDITS.md | ✅ Substantial | ~220 lines. Credit flow, invoice chain, billing rates, service/payroll codes, pay rate hierarchy |
 | USERS_AND_AUTH.md | ✅ Substantial | ~220 lines. Auth tokens, roles/permissions, caregiver profile, multi-agency, gotchas |
 | PATIENTS.md | ✅ Created | ~250 lines. 6 profile tabs, 12 statuses, cert periods, diagnosis codes, schema |
