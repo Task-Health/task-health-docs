@@ -12,7 +12,7 @@ Use this table to decide which docs to read based on the user's task description
 | Keyword / Topic | Read These Docs |
 |----------------|----------------|
 | task, assignment, broadcast, scheduling, RN matching, visit, calendar, task instance, task template, cycle period, repeat | `03-domains/TASK_LIFECYCLE.md` |
-| document, PDF, form, assessment, POC, plan of care, CMS-485, kardex, welcome package, supervisory, form builder, document template, question type, itemType | `03-domains/CLINICAL_DOCUMENTS.md` |
+| document, PDF, form, assessment, POC, plan of care, CMS-485, kardex, welcome package, supervisory, form builder, document template, question type, itemType, adapter, answer mapping, question mapping, change chain, PatientDocumentContentItem, htmlTemplateId, sectionCode, checkbox distribution, cross-section pulling, addendum, answer transformation | `03-domains/CLINICAL_DOCUMENTS.md` |
 | version, versioning, isPublished, template version, html_template_version_id, document version, form version, version lock, version mismatch, parallel versions, draft version | `03-domains/DOCUMENT_VERSIONING.md` |
 | AI, review, generation, ICD codes, teaching, narrative, rules engine, prognosis, functional limitations, activities permitted, safety measures, progress note, GPT, prompt, invisible question, lock hint | `03-domains/AI_SYSTEM.md` |
 | billing, credits, invoice, authorization, payroll, pay rate, service code, payroll code, EDI, rounding, surplus, issue type | `03-domains/BILLING_AND_CREDITS.md` |
@@ -40,7 +40,7 @@ Use this table to decide which docs to read based on the user's task description
 | Domain Doc | What It Covers |
 |-----------|---------------|
 | **TASK_LIFECYCLE.md** | Task Templates → Tasks → Task Instances → Visit Instances. Broadcasting, RN assignment, scheduling, status transitions, 10-step creation pipeline, certification periods. |
-| **CLINICAL_DOCUMENTS.md** | All document types (PA, POC, CMS-485, Kardex, Welcome Package, Supervisory). Form builder, 25+ question types, 3 PDF pipelines, cross-document nursing database questions (61 DatabaseLinkType values), agency branding. |
+| **CLINICAL_DOCUMENTS.md** | All document types (PA, POC, CMS-485, Kardex, Welcome Package, Supervisory). Form builder, 30 question types, full PatientDocumentContentItem interface (~60 fields), adapter pipeline (answer transformation for PDF), 5 mapping types (checkbox distribution, multi-question aggregation, value mapping, cross-section pulling, parent answer mapping), 9-area change chain for question modifications, 3 PDF pipelines, CMS-485 cross-document mapping, nursing database questions (61 DatabaseLinkType values), agency branding. |
 | **DOCUMENT_VERSIONING.md** | Document template versioning — snapshot-based version locking, two-layer versioning (DB content vs code adapters), lazy locking at first RN touch, parallel version coexistence, development checklists for safe version updates. |
 | **AI_SYSTEM.md** | 26 AI-generated questions, AI review system (20 section rules, HARD vs SUGGESTED, 7 medication-diagnosis clusters), POC rules engine (673-line deterministic prompt, 27 derived flags), ICD code generation, 5 invisible auto-generated questions, teaching narratives, lock hints. |
 | **BILLING_AND_CREDITS.md** | Credit-based revenue ($200/assessment), authorizations (day-of-week, period hours), contract billing settings (rounding, tolerances, EDI), pay rates, surpluses, invoicing, ~30 issue types, service/payroll codes. |

@@ -194,28 +194,128 @@ Every question in a document template has a `DocumentItemQuestionType` that dete
 
 ### Form Data Model
 
-Each question is a `PatientDocumentContentItem`:
+Each question is a `PatientDocumentContentItem` (~60 fields). Source: `src/messages/PatientDocuments.ts`.
 
-```
-{
-  id: number,
-  itemType: DocumentItemQuestionType,   // rendering type
-  label: string,                         // question text
-  columns: PatientDocumentContentItem[][], // nested children
-  parentId: number | null,               // conditional visibility parent
-  showIfParentEquals: boolean | null,     // show/hide logic
-  ifParentEquals: string,                // value to match
-  possibleAnswers: string[],             // options for radio/check
-  isRequired: boolean,
-  prefilledAnswer: string | null,
-  htmlTemplateId: string,                // links to AI generation
-  blockOnMobile: boolean,                // locked until AI generates
-  isNarrative: boolean,                  // enables narrative editor
-  isVital: boolean,                      // vital sign with extra details
+**Core Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `id` | `number` | Unique question ID within the document |
+| `itemType` | `DocumentItemQuestionType` | Controls rendering type (see type table below) |
+| `label` | `string` | Question text displayed to the RN |
+| `mainClass` | `string` | CSS class for styling |
+| `columns` | `PatientDocumentContentItem[][] \| null` | Nested child questions (for chart rows, grouped items) |
+| `possibleAnswers` | `string[]` | Options for radio/check/dropdown questions |
+| `isRequired` | `boolean` | Validation — must be answered before submission |
+
+**AI & Generation Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `htmlTemplateId` | `string` | Links question to AI generation rules AND adapter mapping. This is the KEY identifier used across the entire pipeline. |
+| `sectionCode` | `string` | Groups questions for AI review rules (e.g., `"fallRisk"`, `"cardiopulmonary"`) |
+| `blockOnMobile` | `boolean` | Locks field on mobile — either DB-prefilled or AI-generated |
+| `blockOnWebapp` | `boolean` | Locks field on admin webapp too (only AI-generated fields) |
+| `hideOnMobile` | `boolean` | Completely hidden on mobile (invisible questions filled by AI post-submission) |
+| `isNarrative` | `boolean` | Enables narrative editor with speech-to-text |
+| `isTeachingProvided` | `boolean` | Marks as teaching narrative question |
+| `aiGenerationType` | `AIGenerationType` | Type of AI generation behavior |
+| `directToQuestionTemplateIds` | `{ onAnswer, htmlTemplateId, text }[]` | Answer-conditional AI generation triggers |
+
+**Conditional Visibility & Parent Mapping Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `parentId` | `number \| null` | Parent question ID for conditional visibility |
+| `showIfParentEquals` | `boolean \| null` | Enables conditional show/hide logic |
+| `ifParentEquals` | `string` | Value the parent must match for this question to show |
+| `parentAnswer` | `ParentAnswerMapping` | Answer transformation mapping (mobile answer → different PDF answer) |
+| `showOtherOption` | `boolean` | Shows "Other" free-text option |
+
+**Cross-Document & Prefill Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `nursingQuestionLinked` | `NursingQuestionId` | Links to nursing database (61 `DatabaseLinkType` values) for cross-document data flow |
+| `cms485QuestionId` | `string` | Maps this question's answer to a specific CMS-485 field |
+| `oca960questionId` | `string` | Maps to OCA-960 form field |
+| `medflytPOCFieldName` | `string` | Maps to Plan of Care field |
+| `prefilledAnswer` | `string \| null` | Static prefilled value |
+| `dynamicPrefilledAnswer` | `DynamicPrefilledAnswer \| null` | Runtime prefill from patient data |
+| `useInOtherDocs` | `boolean` | This answer is available for other documents to pull |
+| `copyFromOtherDocs` | `boolean` | This question pulls its answer from another document |
+| `useForMedication` | `boolean` | Answer feeds medication profile |
+| `canCopyFromMedication` | `boolean` | Can pull from medication profile |
+| `useForDisciplinAndTreatment` | `boolean` | Feeds discipline/treatment orders |
+| `canCopyFromDisciplinAndTreatment` | `boolean` | Pulls from discipline/treatment |
+| `linkId` | `number \| null` | Links to another question for data sharing |
+
+**Vital Signs Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `isVital` | `boolean` | Renders as vital sign input with method/unit dropdowns |
+| `vitalMeasuredAt` | `LocalDateTime \| null` | When vital was measured |
+| `vitalComments` | `string \| null` | Additional vital sign notes |
+| `vitalMethod` | `VitalMethodType \| null` | Measurement method (Oral, Axillary, etc.) |
+| `vitalUnit` | `VitalUnitType \| null` | Unit of measurement |
+
+**Display & Layout Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `html` | `string` | Raw HTML content for `editor` type questions |
+| `url` | `string \| null` | Image URL for `image` type questions |
+| `forceNewLine` | `boolean` | Forces question onto new line in PDF |
+| `width` | `PatientContentItemWidthRange \| null` | Controls question width in PDF layout |
+| `answerInline` | `boolean` | Renders answer inline with label |
+| `showOnlyAnswer` | `boolean` | Hides label, shows only the answer |
+| `possibleAnswersInDifferentLines` | `boolean` | Each answer option on its own line |
+| `allowUnsignedSignature` | `boolean` | Allows skipping signature |
+| `hideNameFieldSignature` | `boolean` | Hides name field in signature questions |
+
+**Other Fields:**
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `parentType` | `DocumentItemQuestionType \| null` | Parent's question type |
+| `isIcd` | `boolean` | ICD code question |
+| `patientMedicationDetails` | `PatientMedicationProfileWithDetails` | Medication profile data |
+| `POCItems` | `PatientDocumentPOCItem[]` | Plan of Care duty items |
+| `days` | `DayOfWeek[]` | Scheduling-related days |
+| `frequencyPerWeek` | `number` | Frequency scheduling |
+| `visitPerWeek` | `number` | Visit scheduling |
+| `notes` | `string \| null` | Internal notes |
+| `answerValues` | `number[]` | Numeric answer values |
+| `valueGroup` | `string \| null` | Groups answers for aggregation |
+| `isInValueGroup` | `boolean` | Part of a value group |
+| `vbpId` | `VBPItemId \| string` | Value-based purchasing linkage |
+
+**ParentAnswerMapping Interface:**
+
+```typescript
+interface ParentAnswerMapping {
+    exclusiveField?: {
+        label: string;      // What to display on PDF when parent matches
+        value: string;      // The parent answer value to match
+        position?: "first" | "last";  // Where to place the exclusive label
+    };
+    mapping: Record<string, string>;  // Answer value → mapped value
+    otherOption?: string;             // Default for unmatched answers
 }
 ```
 
-### Complete Type Reference (26 types)
+### Section Organization
+
+Sections are NOT a separate entity — they're defined implicitly via question types:
+
+- **`bigHeader`** type questions act as **section dividers** (triggers page break in PDF)
+- **`smallHeader`** type questions act as **sub-section dividers**
+- **`sectionCode`** field on individual questions groups them for AI review rules
+
+The mobile app renders all questions in order. When it hits a `bigHeader`, it starts a new visual section. The `sectionCode` is invisible to the RN but tells the AI system which questions belong together for review.
+
+### Complete Type Reference (30 types)
 
 | Type | Renders As (Mobile) | Renders As (PDF) |
 |------|---------------------|------------------|
@@ -245,6 +345,42 @@ Each question is a `PatientDocumentContentItem`:
 | `patientPhysician` | Physician selector | Physician info |
 | `POC` | Plan of Care items | POC checklist |
 | `RNPlatformPatientPhysician` | Platform-linked physician | Physician info |
+| `vbpItem` | Value-based purchasing item | VBP data |
+| `medicationProfileItem` | Single medication entry | Medication row |
+| `icd` | Single ICD code | ICD code |
+| `icdChart` | ICD codes in chart format | ICD table |
+
+---
+
+## Mobile API — How Documents Reach the RN
+
+### Endpoint
+
+```
+GET /caregivers/:caregiverId/visit_instances/:visitInstanceId/patient_documents
+```
+
+### Response Structure
+
+```typescript
+{
+    documents: (Answered | Unanswered | Scanned)[];  // All documents for this visit
+    freeScans: PatientDocumentScanResponse[];          // Uploaded scans outside form structure
+}
+```
+
+Each document contains:
+- `content: PatientDocumentContentItem[]` — the full question array (the "JSON file")
+- `answers: PatientDocumentAnswerObject[]` — any existing answers (for reopened/resubmitted docs)
+- General metadata (patient info, agency info, caregiver info)
+
+### Prefill Pipeline
+
+Before returning the response, the server calls `fillCaregiverPatientDocument()` which:
+1. Resolves `nursingQuestionLinked` questions by pulling values from the nursing database
+2. Resolves `dynamicPrefilledAnswer` by pulling from patient/visit data
+3. Resolves `prefilledAnswer` static defaults
+4. Marks `blockOnMobile: true` questions as read-only
 
 ---
 
@@ -259,6 +395,252 @@ Questions can be conditionally shown or hidden based on the answer to a parent q
 Before rendering any question, the mobile app calls `checkIfParentEqual(parentItemId, currentAnswers)`. If the parent's current answer does not match `ifParentEquals`, the child question is hidden entirely.
 
 This mechanism is used throughout the clinical forms. For example, a "Diabetic Education" section only appears when the Endocrine assessment indicates "Diabetes", and detailed pain characteristics only appear when Pain Status is "Present".
+
+---
+
+## Answer Transformation Pipeline (Adapter System)
+
+### Overview
+
+When the RN submits a form on mobile, the raw answers are stored as-is in the database. But the PDF doesn't render raw answers — it renders **transformed** answers. The transformation happens through **adapter files**, one per document type per version.
+
+**The pipeline:**
+
+```
+RN fills form on mobile
+    → Raw answers stored in DB (PatientDocumentAnswerObject[])
+    → Lambda invoked for PDF generation
+    → Adapter file transforms raw answers into PDF payload
+    → Nunjucks HTML template renders the payload
+    → wkhtmltopdf / Puppeteer converts to PDF
+```
+
+### Adapter File Structure
+
+**Location:** `taskhealth_server2/src/modules/patient_documents/html/{document-type}/v{N}/adapter.ts`
+
+Example: `html/patient-assessment/v10/adapter.ts` (~2,126 lines)
+
+The adapter exports a function that takes the raw document (content + answers) and returns a flat object of PDF template variables:
+
+```typescript
+// Simplified structure
+export function adaptPatientAssessmentV10(doc: PatientDocToAdapt): Record<string, any> {
+    return {
+        // Checkbox booleans
+        checkbox_livingArrangement_livesAlone: livingArrangement.contains("Lives Alone"),
+        checkbox_livingArrangement_withSpouse: livingArrangement.contains("With Spouse"),
+
+        // Text fields
+        text_allergies: combinedAllergyText,
+
+        // Conditional sections
+        ...getSkinAssessmentWoundAnswers(doc),
+        ...extractNutritionalRequirements(doc),
+
+        // ... hundreds more fields
+    };
+}
+```
+
+### Answer Extraction Helpers
+
+Source: `html/common/html-common/patient-document-html.utils.ts`
+
+Three typed helper functions extract answers with fluent query methods:
+
+**`getCheckBoxQuestionWithAnswer(doc, templateId)`** — for `check` type questions:
+- `.contains(text)` — `true` if any checked option contains the text (case-insensitive)
+- `.exact(text)` — `true` if any checked option exactly matches
+- `.hasOther()` — `true` if "Other" option was selected
+- `.getOtherAnswer()` — returns the "Other" free-text value
+
+**`getRadioQuestionWithAnswer(doc, templateId)`** — for `radio`/`yesNo`/`dropDown` type questions:
+- `.equals(text)` — `true` if the selected option equals the text (case-insensitive)
+- `.contains(text)` — `true` if the selected option contains the text
+- `.hasOther()` / `.getOtherAnswer()` — same as checkbox
+
+**`getTextQuestionWithAnswer(doc, templateId)`** — for `textShort`/`textLong`/`number` type questions:
+- `.getAnswerText()` — returns the answer string or empty string
+
+### The 5 Types of Answer Mapping
+
+#### 1. Checkbox Distribution (One Answer → Multiple PDF Checkboxes)
+
+A single radio/dropdown answer on mobile maps to multiple boolean checkboxes on the PDF.
+
+```typescript
+// Mobile: RN selects "Lives Alone" from radio options
+const livingArrangement = getRadioQuestionWithAnswer(doc, "LivingArrangement");
+
+// PDF: Multiple checkboxes, only one checked
+checkbox_livingArrangement_livesAlone: livingArrangement.contains("Lives Alone"),   // true
+checkbox_livingArrangement_withSpouse: livingArrangement.contains("With Spouse"),   // false
+checkbox_livingArrangement_withFamily: livingArrangement.contains("With Family"),   // false
+checkbox_livingArrangement_withFriend: livingArrangement.hasOther(),                // false
+```
+
+**Why:** Government PDF forms (CMS-485, addendum) have pre-printed checkboxes. The adapter converts the mobile UI's cleaner radio/dropdown into the PDF's checkbox grid.
+
+#### 2. Multi-Question Aggregation (Multiple Questions → One PDF Field)
+
+Multiple separate mobile questions combine into a single text block on the PDF.
+
+```typescript
+// Mobile: 3 separate text fields in the Allergies section
+const medicationAllergies = getTextQuestionWithAnswer(doc, "MedicationAllergies");
+const foodAllergies = getTextQuestionWithAnswer(doc, "FoodAllergies");
+const substanceAllergies = getTextQuestionWithAnswer(doc, "SubstanceEnvironmentalAllergies");
+
+// PDF: One combined allergies field
+const allergies = [
+    `Medication Allergies: ${medicationAllergies.getAnswerText()}`,
+    `Food Allergies: ${foodAllergies.getAnswerText()}`,
+    `Substance/Environmental Allergies: ${substanceAllergies.getAnswerText()}`
+].join(".\r");
+```
+
+**Why:** The mobile form splits allergies into categories for better UX. The PDF (especially CMS-485 field 17) has one small box for all allergies.
+
+#### 3. Value Mapping (Answer Text → Boolean Flags)
+
+Answer strings are decomposed into individual boolean flags for PDF template rendering.
+
+```typescript
+// Mobile: RN selects "TAL-2 Wheelchair" from dropdown
+const talStatus = getRadioQuestionWithAnswer(doc, "TALStatus");
+
+// PDF: Each option becomes a separate checkbox
+checkbox_talStatus_TAL1NonAmbulatoryStretcher: talStatus.equals("TAL-1 Non-ambulatory stretcher"),
+checkbox_talStatus_TAL1NonAmbulatoryVent: talStatus.equals("TAL-1 Non-ambulatory ventilator"),
+checkbox_talStatus_TAL2Wheelchair: talStatus.equals("TAL-2 Wheelchair"),      // true
+checkbox_talStatus_TAL3Ambulatory: talStatus.equals("TAL-3 Ambulatory"),      // false
+```
+
+#### 4. Cross-Section Pulling with Conditional Logic
+
+Questions from different form sections are pulled together and conditionally mapped.
+
+```typescript
+// Wound assessment: pulls from Integumentary section, only shows if "Wound" is checked
+function getSkinAssessmentWoundAnswers(doc) {
+    const integumentary = getCheckBoxQuestionWithAnswer(doc, "Integumentary");
+    const woundLocation = getTextQuestionWithAnswer(doc, "SkinWoundLocation");
+    const woundSize = getTextQuestionWithAnswer(doc, "SkinWoundSize");
+    const woundStage = getRadioQuestionWithAnswer(doc, "SkinWoundStage");
+
+    const isThereAWound = integumentary.exact("Wound");
+
+    return {
+        isThereAWound,
+        location: isThereAWound ? woundLocation.getAnswerText() : "",
+        size: isThereAWound ? woundSize.getAnswerText() : "",
+        stage: !isThereAWound ? null : {
+            I: woundStage.equals("I"),
+            II: woundStage.equals("II"),
+            III: woundStage.equals("III"),
+            IV: woundStage.equals("IV"),
+        }
+    };
+}
+```
+
+#### 5. Parent Answer Mapping (ParentAnswerMapping)
+
+The `parentAnswer` field on `PatientDocumentContentItem` transforms a child question's answer based on the parent question's answer value. Processed by `getDocumentQuestionMappedParentAnswer()` in `patient-document-processing.utils.ts`.
+
+```typescript
+// Logic: If parent's answer matches exclusiveField.value,
+//        return exclusiveField.label instead of normal answer options
+if (parentAnswer === exclusiveField.value) {
+    return exclusiveField.label;  // e.g., "WNL" instead of showing all checkboxes
+}
+```
+
+**Use case:** When a parent "assessment" question is answered "WNL" (Within Normal Limits), the child detail questions don't need to be filled — the PDF just shows "WNL" in their place.
+
+### Addendum Overflow
+
+When mapped/aggregated answers exceed the space available in the PDF field, the adapter inserts `"(See Addendum)"` as a marker and the overflow content is rendered on the addendum page. This is especially common for CMS-485 fields 10 (medications), 13 (diagnoses), 21 (orders), and 22 (goals).
+
+### Cross-Document Mapping: CMS-485
+
+The CMS-485 (federal government form) pulls answers from the Patient Assessment. This happens in `cms485DocumentToPayload.ts` (~1,074 lines), which is a separate adapter that:
+
+1. Takes the Patient Assessment's adapted payload
+2. Maps specific fields to CMS-485's 28 numbered fields
+3. Handles overflow to addendum pages (DOH-3725)
+4. Produces a payload for the pdftk-based PDF fill (Pipeline 2)
+
+**Key cross-document mappings:**
+
+| CMS-485 Field | Source in Patient Assessment |
+|--------------|---------------------------|
+| Field 10 (Medications) | Medication Profile section |
+| Field 11 (Principal Diagnosis) | Final ICD Codes |
+| Field 13 (Other Diagnoses) | Sectioned ICD Codes |
+| Field 14 (DME and Supplies) | DME section checkboxes |
+| Field 15 (Safety Measures) | Safety Measures text |
+| Field 16 (Nutritional Req.) | Nutritional Assessment |
+| Field 17 (Allergies) | Three allergy text fields (aggregated) |
+| Field 18A (Functional Limitations) | Functional Limitations checkboxes |
+| Field 18B (Activities Permitted) | Activities Permitted checkboxes |
+| Field 19 (Mental Status) | Neurological Assessment |
+| Field 20 (Prognosis) | Summary Prognosis radio |
+| Field 21 (Orders) | Discipline/Treatment orders |
+| Field 22 (Goals) | Goals of Care text |
+
+---
+
+## The 9-Area Change Chain — Modifying a Question
+
+**This section documents exactly why changing a single question is a multi-day effort for developers.** When you modify a question (rename an answer option, add a new option, change a section, restructure anything), ALL of these areas must be checked and potentially updated:
+
+### The Complete Checklist
+
+| # | Area | File Location | What to Check/Update |
+|---|------|--------------|---------------------|
+| 1 | **Form Builder Content (DB)** | Admin UI → `patient_documents_types_versions.content` JSONB | The question definition itself: `label`, `possibleAnswers`, `itemType`, `parentId`, `showIfParentEquals`, `ifParentEquals`. This is the source of truth for what the mobile app renders. |
+| 2 | **Adapter File** | `html/{doc-type}/v{N}/adapter.ts` | Every `.contains("old text")`, `.equals("old text")`, `.exact("old text")` string match that references the old answer text. **Renaming an answer option here is the most tedious step** — you must find every reference in ~2,000 lines of transformation code. |
+| 3 | **AI Generation Rules** | `html/{doc-type}/v{N}/rules/*.ts` (36 files for PA v10) | Prompt text that references answer options by name. If the prompt says "If the patient answers 'Lives Alone'..." and you rename that option, the AI will stop matching. |
+| 4 | **AI Review Rules** | `html/{doc-type}/v{N}/review-rules/*.ts` (20 files for PA v10) | Validation logic that checks specific answer values. Review rules use the same `.contains()` / `.equals()` helpers as the adapter. |
+| 5 | **HTML/Nunjucks Template** | `html/{doc-type}/v{N}/template.njk` | The PDF template that renders the adapted values. If a variable name changes in the adapter, the template breaks. |
+| 6 | **`htmlTemplateId` References** | Adapter + rules + review-rules + generation map | If the question's `htmlTemplateId` changes (rare but happens when restructuring), ALL references across all files break. This is the universal identifier — adapter uses it to find the question, AI rules use it to know which question to generate, review rules use it to validate. |
+| 7 | **Nursing Question Links** | Other documents with `nursingQuestionLinked` pointing to this question | If this question feeds data to other documents (POC, Kardex, CMS-485) via the nursing database, changing the answer format breaks the receiving documents. 61 possible `DatabaseLinkType` values. |
+| 8 | **CMS-485 / Cross-Doc Mapping** | `cms485DocumentToPayload.ts` (~1,074 lines) | If the question maps to a CMS-485 field (via `cms485QuestionId` or direct reference), the cross-document adapter must be updated too. |
+| 9 | **Section Definitions** | `sectionCode` in form builder content + AI rules section grouping | If the question moves to a different section, the `sectionCode` must change, which affects which AI review rule evaluates it. |
+
+### Version Implications
+
+**Every change is version-specific.** If you're modifying v10, only v10 files change. Tasks locked to v4-v9 continue using their old definitions. This means:
+
+- Bug fixes in question logic cannot reach old versions
+- A single "rename" may need to be applied to multiple version folders if you want consistency
+- New versions should be created rather than modifying published versions (see [DOCUMENT_VERSIONING.md](DOCUMENT_VERSIONING.md))
+
+### Typical Workflow for a Question Change
+
+1. **Create a new unpublished version** in the form builder (or work on the existing draft)
+2. **Modify the question** in the form builder UI (updates `content` JSONB)
+3. **Create new adapter version** — copy `v{N}` folder to `v{N+1}`, update all string matches
+4. **Create new AI rules** — copy rules folder, update any prompts referencing the old answers
+5. **Create new review rules** — copy review-rules folder, update validation logic
+6. **Create new HTML template** — copy template, update variable references if needed
+7. **Update version routing** — add `v{N+1}` to the version map in the code
+8. **Test end-to-end** — fill form on mobile → submit → verify PDF renders correctly → verify AI generates correctly → verify review rules fire correctly
+9. **Publish** — set `isPublished = TRUE` on the new version in the form builder
+
+### Key Code Locations
+
+| Purpose | File |
+|---------|------|
+| Adapter routing (version map) | `html/{doc-type}/adapter.ts` (imports all version adapters) |
+| AI rules routing | `html/{doc-type}/rules/index.ts` |
+| Review rules routing | `html/{doc-type}/review-rules/index.ts` |
+| htmlTemplateId constants | `html/{doc-type}/v{N}/htmlTemplateIds.ts` |
+| Answer helpers | `html/common/html-common/patient-document-html.utils.ts` |
+| Parent answer processing | `html/common/document-processing/patient-document-processing.utils.ts` |
+| CMS-485 cross-doc adapter | `pdf_templates/templates/cms485/cms485DocumentToPayload.ts` |
 
 ---
 
