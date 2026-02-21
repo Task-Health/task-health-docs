@@ -307,13 +307,57 @@ interface ParentAnswerMapping {
 
 ### Section Organization
 
-Sections are NOT a separate entity — they're defined implicitly via question types:
+Sections are defined through THREE layers:
 
+**Layer 1: Visual Dividers (mobile + PDF rendering)**
 - **`bigHeader`** type questions act as **section dividers** (triggers page break in PDF)
 - **`smallHeader`** type questions act as **sub-section dividers**
-- **`sectionCode`** field on individual questions groups them for AI review rules
+- The mobile app renders all questions in order. When it hits a `bigHeader`, it starts a new visual section.
 
-The mobile app renders all questions in order. When it hits a `bigHeader`, it starts a new visual section. The `sectionCode` is invisible to the RN but tells the AI system which questions belong together for review.
+**Layer 2: Section Codes (AI system)**
+- **`sectionCode`** field on individual questions groups them for AI review rules
+- Invisible to the RN but tells the AI system which questions belong together for review
+- Example values: `"fallRisk"`, `"cardiopulmonary"`, `"NEUROLOGICAL"`, `"GENERAL"`
+
+**Layer 3: DocumentQuestionGroup (code-level grouping)**
+
+Source: `html/patient-assessment/v10/sections/` (27 section files)
+
+Each section is defined as a `DocumentQuestionGroup` in TypeScript:
+
+```typescript
+const cardiopulmonarySectionV10: DocumentQuestionGroup = {
+    name: "Cardiopulmonary Assessment",
+    documentType: PatientDocumentType.PatientAssessment,
+    requiredTemplateIds: Object.values(
+        patientAssessmentHtmlTemplateIdsV10.CardiopulmonaryAssessment
+    ),
+    formattingTemplateIds: Object.values(
+        sectionTemplateIdsFormattingV10.CardiopulmonaryAssessment
+    ),
+    formatQuestionsForExpectedAnswersFromDiagnoses:
+        standardExpectedAnswersQuestionFormat(
+            sectionTemplateIdsFormattingV10.CardiopulmonaryAssessment,
+            [
+                patientAssessmentHtmlTemplateIdsV10.CardiopulmonaryAssessment.CardiovascularAcuteSymptoms,
+                patientAssessmentHtmlTemplateIdsV10.CardiopulmonaryAssessment.Respiratory,
+                patientAssessmentHtmlTemplateIdsV10.CardiopulmonaryAssessment.LungSounds
+            ]
+        ),
+    summaryPrompt,   // AI prompt for section summary generation
+    order: 7         // Rendering order
+};
+```
+
+**What each field controls:**
+
+| Field | Purpose |
+|-------|---------|
+| `requiredTemplateIds` | Which `htmlTemplateId` values belong to this section — used for AI generation prereqs |
+| `formattingTemplateIds` | Which questions get diagnosis-based formatting (auto-select expected answers based on ICD codes) |
+| `formatQuestionsForExpectedAnswersFromDiagnoses` | Function that auto-selects checkbox answers based on patient diagnoses |
+| `summaryPrompt` | The AI prompt used when generating the section's teaching/summary narrative |
+| `order` | Sort order for section rendering |
 
 ### Complete Type Reference (30 types)
 
@@ -374,6 +418,68 @@ Each document contains:
 - `answers: PatientDocumentAnswerObject[]` — any existing answers (for reopened/resubmitted docs)
 - General metadata (patient info, agency info, caregiver info)
 
+### Example JSON Response
+
+```json
+{
+  "documents": [
+    {
+      "type": "Unanswered",
+      "id": 12345,
+      "visitInstanceId": 999,
+      "documentTypeId": 5,
+      "title": "Patient Assessment",
+      "versionId": 42,
+      "content": [
+        {
+          "id": 1,
+          "mainClass": "form-section",
+          "itemType": "bigHeader",
+          "label": "General Information",
+          "parentId": null,
+          "showIfParentEquals": null
+        },
+        {
+          "id": 2,
+          "itemType": "date",
+          "label": "DOB",
+          "htmlTemplateId": "patient_assessment_v10_patient_dob",
+          "sectionCode": "GENERAL",
+          "parentId": null,
+          "showIfParentEquals": null,
+          "blockOnMobile": true,
+          "nursingQuestionLinked": 3
+        },
+        {
+          "id": 100,
+          "itemType": "yesNo",
+          "label": "Does patient have pain?",
+          "parentId": null,
+          "possibleAnswers": ["Yes", "No"]
+        },
+        {
+          "id": 101,
+          "itemType": "number",
+          "label": "Pain scale (1-10)",
+          "parentId": 100,
+          "showIfParentEquals": true,
+          "ifParentEquals": "Yes"
+        }
+      ],
+      "answers": [
+        {
+          "questionId": 2,
+          "answer": "1965-03-15",
+          "chartRow": -1,
+          "answeredAt": "2025-02-20T10:30:00Z"
+        }
+      ]
+    }
+  ],
+  "freeScans": []
+}
+```
+
 ### Prefill Pipeline
 
 Before returning the response, the server calls `fillCaregiverPatientDocument()` which:
@@ -381,6 +487,18 @@ Before returning the response, the server calls `fillCaregiverPatientDocument()`
 2. Resolves `dynamicPrefilledAnswer` by pulling from patient/visit data
 3. Resolves `prefilledAnswer` static defaults
 4. Marks `blockOnMobile: true` questions as read-only
+
+### Cross-Document Regeneration via nursingQuestionLinked
+
+When a nursing question answer is updated, the system automatically regenerates related documents. Source: `RegenerateOtherDocsCtrl.ts`.
+
+```sql
+-- Finds all document items linked to updated nursing questions
+ON item->>'nursingQuestionLinked' IS NOT NULL
+AND (item->>'nursingQuestionLinked')::INT = ANY(${nursingQuestionIds})
+```
+
+This means: if the RN updates an answer in the Patient Assessment that has `nursingQuestionLinked`, the system finds ALL other documents (POC, Kardex, CMS-485) that reference that same nursing question ID and regenerates their linked fields.
 
 ---
 
@@ -404,15 +522,37 @@ This mechanism is used throughout the clinical forms. For example, a "Diabetic E
 
 When the RN submits a form on mobile, the raw answers are stored as-is in the database. But the PDF doesn't render raw answers — it renders **transformed** answers. The transformation happens through **adapter files**, one per document type per version.
 
-**The pipeline:**
+**The full transformation pipeline:**
 
 ```
-RN fills form on mobile
-    → Raw answers stored in DB (PatientDocumentAnswerObject[])
-    → Lambda invoked for PDF generation
-    → Adapter file transforms raw answers into PDF payload
-    → Nunjucks HTML template renders the payload
-    → wkhtmltopdf / Puppeteer converts to PDF
+MOBILE FORM INPUT (RN fills questions)
+    ↓
+[Answer Extraction via getXXXQuestionWithAnswer helpers]
+    ↓
+Typed answer objects with helper methods
+    ├─ .contains() / .equals() / .exact() for comparison
+    ├─ .hasOther() / .getOtherAnswer() for custom values
+    ├─ .getAnswerText() for text formatting
+    └─ .isItemVisible for conditional display
+    ↓
+[Conditional Transformation Functions]
+    ├─ Custom functions for complex logic (getSkinAssessmentWound, etc.)
+    ├─ Multi-question aggregation (formatDmeAndSuppliesFromQuestions)
+    ├─ Value mapping (formatMapMultipleQuestions with Map<string, string>)
+    └─ Parent question mapping (getDocumentQuestionMappedParentAnswer)
+    ↓
+[Format Conversions]
+    ├─ Date formatting: YYYY-MM-DD → MM/dd/yyyy
+    ├─ Signature extraction: base64 splitting (";base64,".pop())
+    ├─ Array combination: ["item1", "item2"] → "item1; item2"
+    └─ Units addition: "120" → "120 mmHg"
+    ↓
+[Addendum Overflow]
+    ├─ Check if answer fits in PDF field (rowLength × rowsNum)
+    ├─ If too long: store remainder in addendum
+    └─ Add "(See Addendum)" marker
+    ↓
+PDF OUTPUT / CMS-485 SPECIFIC FIELDS
 ```
 
 ### Adapter File Structure
@@ -502,20 +642,26 @@ const allergies = [
 
 **Why:** The mobile form splits allergies into categories for better UX. The PDF (especially CMS-485 field 17) has one small box for all allergies.
 
-#### 3. Value Mapping (Answer Text → Boolean Flags)
+#### 3. Value Mapping (Answer Text → Different Display Text or Boolean Flags)
 
-Answer strings are decomposed into individual boolean flags for PDF template rendering.
+Answer strings are decomposed into individual boolean flags, or the mobile option label maps to a different PDF string via `formatMapMultipleQuestions()` with a `valueToStringMap`:
 
 ```typescript
-// Mobile: RN selects "TAL-2 Wheelchair" from dropdown
+// Pattern A: Direct boolean decomposition
 const talStatus = getRadioQuestionWithAnswer(doc, "TALStatus");
-
-// PDF: Each option becomes a separate checkbox
 checkbox_talStatus_TAL1NonAmbulatoryStretcher: talStatus.equals("TAL-1 Non-ambulatory stretcher"),
-checkbox_talStatus_TAL1NonAmbulatoryVent: talStatus.equals("TAL-1 Non-ambulatory ventilator"),
 checkbox_talStatus_TAL2Wheelchair: talStatus.equals("TAL-2 Wheelchair"),      // true
 checkbox_talStatus_TAL3Ambulatory: talStatus.equals("TAL-3 Ambulatory"),      // false
+
+// Pattern B: String-to-string mapping (mobile label → different PDF label)
+formatMapMultipleQuestions(questions, new Map([
+    ["Gait Abnormality", "Impaired Gait"],
+    ["Limited ROM", "Limited Range of Motion"],
+    // mobile option text → PDF display text
+]));
 ```
+
+**Why:** Some PDF forms (especially government forms) use different terminology than what's clearer for the RN on mobile.
 
 #### 4. Cross-Section Pulling with Conditional Logic
 
@@ -561,7 +707,53 @@ if (parentAnswer === exclusiveField.value) {
 
 ### Addendum Overflow
 
-When mapped/aggregated answers exceed the space available in the PDF field, the adapter inserts `"(See Addendum)"` as a marker and the overflow content is rendered on the addendum page. This is especially common for CMS-485 fields 10 (medications), 13 (diagnoses), 21 (orders), and 22 (goals).
+When mapped/aggregated answers exceed the space available in the PDF field, the `fillWithAddendum()` function handles overflow:
+
+```typescript
+const fillWithAddendum = (fieldName, filler, ...args) => {
+    let fieldValue = filler(fieldName, ...args);
+    const field = getCms485Field(fieldName);
+
+    if (fieldValue && field.type === "PDFTextField") {
+        const { rowLength = 0, rowsNum = 1, disableSeeAddendum = false } = field;
+
+        if (rowLength > 0) {
+            const { boxedLines, remainText } = boxTextValue(fieldValue, rowLength, rowsNum);
+
+            if (remainText.length > 0) {
+                // TEXT TOO LONG: truncate + add marker
+                fieldValue = [...boxedLines, "(See Addendum)"].join("\n");
+                cms485Question2Addendum[fieldName] = remainText;  // Store overflow for addendum page
+            }
+        }
+    }
+    return fieldValue;
+};
+```
+
+**How it works:** Each CMS-485 PDF field has a defined `rowLength` (characters per row) and `rowsNum` (number of rows). `boxTextValue()` word-wraps text to fit. If there's remainder text, it adds "(See Addendum)" and stores the overflow in a dictionary that gets rendered on the addendum pages (DOH-3725).
+
+**Most commonly overflows:** CMS-485 fields 10 (medications), 13 (diagnoses), 21 (orders), and 22 (goals).
+
+### CMS-485 Specific Helpers
+
+Source: `cms485DocumentToPayload.ts`
+
+```typescript
+// Date formatting: database format → CMS-485 format
+const getCms485DateAnswer = (fieldName) => {
+    const rawDate = getCms485AnswerValue(fieldName);
+    // Converts YYYY-MM-DD → MM/dd/yyyy
+    return formattedDate;
+};
+
+// Signature extraction: strips base64 header for PDF embedding
+const getCms485SignatureAnswer = (fieldName) => {
+    const base64 = getCms485AnswerValue(fieldName);
+    const signatureValue = base64?.split(";base64,").pop();  // Extracts image data only
+    return isDefined(signatureValue) && signatureValue !== "" ? signatureValue : null;
+};
+```
 
 ### Cross-Document Mapping: CMS-485
 
@@ -632,15 +824,28 @@ The CMS-485 (federal government form) pulls answers from the Patient Assessment.
 
 ### Key Code Locations
 
-| Purpose | File |
-|---------|------|
-| Adapter routing (version map) | `html/{doc-type}/adapter.ts` (imports all version adapters) |
-| AI rules routing | `html/{doc-type}/rules/index.ts` |
-| Review rules routing | `html/{doc-type}/review-rules/index.ts` |
-| htmlTemplateId constants | `html/{doc-type}/v{N}/htmlTemplateIds.ts` |
-| Answer helpers | `html/common/html-common/patient-document-html.utils.ts` |
-| Parent answer processing | `html/common/document-processing/patient-document-processing.utils.ts` |
-| CMS-485 cross-doc adapter | `pdf_templates/templates/cms485/cms485DocumentToPayload.ts` |
+All paths relative to `taskhealth_server2/src/modules/`.
+
+| Purpose | File | Lines |
+|---------|------|-------|
+| **Type definitions** | `../../messages/PatientDocuments.ts` | ~232 |
+| **Adapter routing (version map)** | `patient_documents/html/{doc-type}/adapter.ts` | imports all version adapters |
+| **PA v10 adapter** | `patient_documents/html/patient-assessment/v10/adapter.ts` | ~2,126 |
+| **POC v7 adapter** | `patient_documents/html/plan-of-care/v7/adapter.ts` | ~700 |
+| **AI rules routing** | `patient_documents/html/{doc-type}/rules/index.ts` | |
+| **Review rules routing** | `patient_documents/html/{doc-type}/review-rules/index.ts` | |
+| **htmlTemplateId constants** | `patient_documents/html/{doc-type}/v{N}/htmlTemplateIds.ts` | per-version ID map |
+| **Template ID map** | `patient_documents/html/patient-assessment/v{N}/patient-assessment.template-ids.v{N}.ts` | all IDs |
+| **Value-to-string maps** | `patient_documents/html/{doc-type}/v{N}/values-to-string-map.v{N}.ts` | display text mapping |
+| **HTML string constants** | `patient_documents/html/{doc-type}/v{N}/*-html.strings.v{N}.ts` | checkbox/label text |
+| **Section definitions** | `patient_documents/html/patient-assessment/v10/sections/` | 27 section files |
+| **All sections index** | `patient_documents/html/patient-assessment/all.sections.ts` | |
+| **Answer extraction helpers** | `patient_documents/html/common/html-common/patient-document-html.utils.ts` | ~300 |
+| **Parent answer processing** | `patient_documents/html/common/document-processing/patient-document-processing.utils.ts` | ~375 |
+| **CMS-485 cross-doc adapter** | `pdf_templates/templates/cms485/cms485DocumentToPayload.ts` | ~1,074 |
+| **Nursing question regeneration** | `patient_documents/controllers/RegenerateOtherDocsCtrl.ts` | |
+| **Mobile API endpoint** | `patient_documents/views/PatientDocumentCaregiverView.ts` | lines 281-323 |
+| **Document type contracts** | `patient_documents/html/patient-assessment/v10/patient-assessment.types.ts` | |
 
 ---
 
