@@ -784,23 +784,43 @@ The CMS-485 (federal government form) pulls answers from the Patient Assessment.
 
 ---
 
-## The 9-Area Change Chain — Modifying a Question
+## The 11-Area Change Chain — Modifying a Question
 
 **This section documents exactly why changing a single question is a multi-day effort for developers.** When you modify a question (rename an answer option, add a new option, change a section, restructure anything), ALL of these areas must be checked and potentially updated:
 
+### THE FUNDAMENTAL PROBLEM: No Single Source of Truth
+
+**The same answer option string literal (e.g., `"Lives Alone"`) appears independently in up to 7 different places** — the form builder JSONB, the adapter file, the AI generation rules, the AI review rules, the value-to-string map, the HTML string constants, and the CMS-485 cross-doc adapter. There is NO shared enum or constant that ties them together. Each file contains its own hardcoded copy of the string. Renaming an answer option means finding and replacing that exact string across all of these files independently. Miss one, and you get a silent bug — the adapter won't match, the AI rule won't fire, or the PDF will render blank.
+
 ### The Complete Checklist
 
-| # | Area | File Location | What to Check/Update |
-|---|------|--------------|---------------------|
+| # | Area | File Pattern | What to Check/Update |
+|---|------|-------------|---------------------|
 | 1 | **Form Builder Content (DB)** | Admin UI → `patient_documents_types_versions.content` JSONB | The question definition itself: `label`, `possibleAnswers`, `itemType`, `parentId`, `showIfParentEquals`, `ifParentEquals`. This is the source of truth for what the mobile app renders. |
 | 2 | **Adapter File** | `html/{doc-type}/v{N}/adapter.ts` | Every `.contains("old text")`, `.equals("old text")`, `.exact("old text")` string match that references the old answer text. **Renaming an answer option here is the most tedious step** — you must find every reference in ~2,000 lines of transformation code. |
 | 3 | **AI Generation Rules** | `html/{doc-type}/v{N}/rules/*.ts` (36 files for PA v10) | Prompt text that references answer options by name. If the prompt says "If the patient answers 'Lives Alone'..." and you rename that option, the AI will stop matching. |
 | 4 | **AI Review Rules** | `html/{doc-type}/v{N}/review-rules/*.ts` (20 files for PA v10) | Validation logic that checks specific answer values. Review rules use the same `.contains()` / `.equals()` helpers as the adapter. |
-| 5 | **HTML/Nunjucks Template** | `html/{doc-type}/v{N}/template.njk` | The PDF template that renders the adapted values. If a variable name changes in the adapter, the template breaks. |
-| 6 | **`htmlTemplateId` References** | Adapter + rules + review-rules + generation map | If the question's `htmlTemplateId` changes (rare but happens when restructuring), ALL references across all files break. This is the universal identifier — adapter uses it to find the question, AI rules use it to know which question to generate, review rules use it to validate. |
-| 7 | **Nursing Question Links** | Other documents with `nursingQuestionLinked` pointing to this question | If this question feeds data to other documents (POC, Kardex, CMS-485) via the nursing database, changing the answer format breaks the receiving documents. 61 possible `DatabaseLinkType` values. |
-| 8 | **CMS-485 / Cross-Doc Mapping** | `cms485DocumentToPayload.ts` (~1,074 lines) | If the question maps to a CMS-485 field (via `cms485QuestionId` or direct reference), the cross-document adapter must be updated too. |
-| 9 | **Section Definitions** | `sectionCode` in form builder content + AI rules section grouping | If the question moves to a different section, the `sectionCode` must change, which affects which AI review rule evaluates it. |
+| 5 | **Value-to-String Map** | `html/{doc-type}/v{N}/values-to-string-map.v{N}.ts` | Maps internal answer values to display strings for the PDF. Example: `{ ORIENTED: "Oriented", DISORIENTED: "Disoriented" }`. If you rename an answer, the mapping key or value must change. |
+| 6 | **HTML String Constants** | `html/{doc-type}/v{N}/*-html.strings.v{N}.ts` | Checkbox labels, display text, and other string literals used in the HTML/Nunjucks template. These are the actual strings rendered on the PDF. |
+| 7 | **HTML/Nunjucks Template** | `html/{doc-type}/v{N}/template.njk` | The PDF template that renders the adapted values. If a variable name changes in the adapter, the template breaks. |
+| 8 | **`htmlTemplateId` References** | Adapter + rules + review-rules + generation map + template ID maps (`patient-assessment.template-ids.v{N}.ts`) + section files (`sections/*.ts` with `requiredTemplateIds`) | If the question's `htmlTemplateId` changes (rare but happens when restructuring), ALL references across all files break. This is the universal identifier — adapter uses it to find the question, AI rules use it to know which question to generate, review rules use it to validate. |
+| 9 | **Nursing Question Links** | Other documents with `nursingQuestionLinked` pointing to this question + `RegenerateOtherDocsCtrl.ts` | If this question feeds data to other documents (POC, Kardex, CMS-485) via the nursing database, changing the answer format breaks the receiving documents. 61 possible `DatabaseLinkType` values. Changing the answer also triggers regeneration of all linked documents via SQL `ON item->>'nursingQuestionLinked'`. |
+| 10 | **CMS-485 / Cross-Doc Mapping** | `cms485DocumentToPayload.ts` (~1,074 lines) | If the question maps to a CMS-485 field (via `cms485QuestionId` or direct reference), the cross-document adapter must be updated too. |
+| 11 | **Section Definitions** | `sectionCode` in form builder content + `all.sections.ts` + `sections/*.ts` (27 files) | If the question moves to a different section, the `sectionCode` must change, which affects which AI review rule evaluates it. Also update `requiredTemplateIds` and `formattingTemplateIds` in the `DocumentQuestionGroup`. |
+
+### Critical Linkage Points
+
+When editing ANY question, always verify these 7 fields are consistent:
+
+| Field | Why It Matters |
+|-------|---------------|
+| `htmlTemplateId` | Must exist in adapter, template ID maps, AI rules, review rules, and section definitions. This is the universal key. |
+| `sectionCode` | Determines which AI review rule evaluates this question. Wrong code = review rule won't fire. |
+| `parentId` + `ifParentEquals` | Mobile app uses for conditional rendering. If parent question changes, children may silently break. |
+| `nursingQuestionLinked` | Syncs answers to `nursing_question_answer` table and triggers cross-document regeneration. Changing answer format here cascades to every linked document. |
+| `possibleAnswers` | **String-matched everywhere** — adapters, AI rules, review rules, value maps, HTML strings. No shared constant. |
+| `blockOnMobile` / `hideOnMobile` | Controls visibility to caregiver app. If set wrong, RN sees a field they shouldn't edit or can't see a field they need. |
+| `dynamicPrefilledAnswer` | Special pre-population logic from patient data. If the source data format changes, the prefill breaks silently. |
 
 ### Version Implications
 
