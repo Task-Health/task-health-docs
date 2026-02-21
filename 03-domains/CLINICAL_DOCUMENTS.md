@@ -281,7 +281,7 @@ Each question is a `PatientDocumentContentItem` (~60 fields). Source: `src/messa
 | `parentType` | `DocumentItemQuestionType \| null` | Parent's question type |
 | `isIcd` | `boolean` | ICD code question |
 | `patientMedicationDetails` | `PatientMedicationProfileWithDetails` | Medication profile data |
-| `POCItems` | `PatientDocumentPOCItem[]` | Plan of Care duty items |
+| `POCItems` | `PatientDocumentPOCItem[]` | Plan of Care duty items (array of `{ id: string, name: string }`, used with `itemType: "POC"` and `htmlTemplateId: "poc"`) |
 | `days` | `DayOfWeek[]` | Scheduling-related days |
 | `frequencyPerWeek` | `number` | Frequency scheduling |
 | `visitPerWeek` | `number` | Visit scheduling |
@@ -387,7 +387,7 @@ const cardiopulmonarySectionV10: DocumentQuestionGroup = {
 | `sectionedIcdCodes` | Section-specific ICD codes | ICD codes grouped by section |
 | `finalIcdCodes` | Final diagnosis codes | Principal + surgical ICD codes |
 | `patientPhysician` | Physician selector | Physician info |
-| `POC` | Plan of Care items | POC checklist |
+| `POC` | Plan of Care duty items with frequency selection (uses `POCItems` array, not `possibleAnswers`) | POC frequency grid with duty names and frequency text |
 | `RNPlatformPatientPhysician` | Platform-linked physician | Physician info |
 | `vbpItem` | Value-based purchasing item | VBP data |
 | `medicationProfileItem` | Single medication entry | Medication row |
@@ -1444,6 +1444,68 @@ New York State Department of Health form.
 
 ### Plan of Care / POC (2 pages)
 
+#### Two Parallel POC Systems
+
+There are two completely separate POC systems in the codebase. They do not share data or logic:
+
+**Legacy POC:** Uses the `plan_of_care_item` table, with items configured per agency/office via `planOfCareTypeId`. Items are seeded via CSV import scripts (`ImportPlanOfCareItems.ts`). This system is used by the old caregiver app.
+
+**RN Platform POC:** Uses hardcoded TypeScript constants and an AI rules engine. The code is version-specific (v1 through v7; the latest is v7). Source files are at `src/modules/patient_documents/html/plan-of-care/v7/`. This is the system used by the RN mobile app and described throughout this document.
+
+#### POC Question Type
+
+In the form builder, the POC uses a special question type: `itemType: "POC"` (not `"check"`). The question has `htmlTemplateId: "poc"` and a `POCItems` array listing all duties. Each POCItem has the shape `{ id: "Bath Shower", name: "Bath Shower" }`.
+
+This is different from legacy duty items, which use `itemType: "check"` with `possibleAnswers: ["Done", "Add Notes"]`.
+
+#### POC Answer Schema (AI-Generated)
+
+The AI generates POC answers using a structured schema:
+
+```typescript
+zPOCItemsDocumentAnswer = {
+    item: string,                    // duty name e.g. "Bath Shower"
+    attributes: TaskWhenToPerform,   // frequency data (see below)
+    notes: string | null
+}
+
+TaskWhenToPerform =
+    | { type: "EveryVisit" }
+    | { type: "OnDaysOfWeek", frequency: { frequency: number } }
+    | { type: "AsRequestedByPatient" }
+```
+
+The adapter converts these to display text via `formatFrequencyText()`:
+- `EveryVisit` renders as "Every visit"
+- `OnDaysOfWeek` renders as "X visits per week"
+- `AsRequestedByPatient` renders as "As needed"
+
+#### POC Data Pipeline
+
+The complete data flow for POC generation and rendering:
+
+1. Form builder JSONB defines the POC question (with `POCItems` array)
+2. AI prompt generates structured JSON answers (using the schema above)
+3. Answers are saved to `patient_documents_answer`
+4. Mobile app receives `content` + `answers`
+5. Adapter reads answers and transforms them for display
+6. HTML template renders the frequency grid
+7. PDF is generated from the rendered HTML
+
+#### Version Management
+
+POC versions are managed through two registries in `plan-of-care/index.ts`:
+- `planOfCareDocumentAdapterVersions[version]` — maps versions to adapter functions
+- `planOfCareDocumentGenerationRules[version]` — maps versions to AI generation rules
+
+The version is determined by `patient_documents_types_versions.html_template_version_id`.
+
+#### IVR Code Mapping
+
+The `rn_platform_poc_item_code` table stores agency-specific IVR codes (used for HHA Exchange integration). The `plan_of_care_item_code_pdf_enable` flag controls whether codes appear on the generated PDF. Default codes are defined in `poc-item-default-code-values.ts` and follow a category-based numbering scheme (100s = Personal Care, 200s = Treatment, etc.). The agency portal at go.task-health.com has a mapping page where agencies can configure their own codes.
+
+#### POC PDF Content
+
 Header shows: Patient Name, Gender, Certification Period, Patient Address, DOB, Call Agency 24/7 phone number.
 
 **Task/Activity Frequency Grid:**
@@ -1457,7 +1519,7 @@ Header shows: Patient Name, Gender, Certification Period, Patient Address, DOB, 
 | **Treatment** | Empty foley bag, Remind to take medication, Ask Patient About Pain, Observe/Report Physical/Mental Changes, Monitor Patient Safety, Ostomy/Catheter Care |
 | **Household** | Change Bed Linen, Patient Laundry, Light Housekeeping (Dust, Vacuum, Clean), Shopping and Errands, Accompany Patient to medical appointment |
 
-Each task has a frequency column (e.g., "Every visit", "As needed").
+Each task has a frequency column (e.g., "Every visit", "X visits per week", "As needed").
 
 **Emergency Reporting Guidelines:**
 - Call 911 for emergency: severe bleeding, chest pain, shortness of breath, loss of consciousness
@@ -1544,6 +1606,10 @@ Agency-branded legal/consent document.
 ### Aide Supervisory Form (2 pages)
 
 **Header:** Patient Name, DOB, Gender, Caregiver Name, Supervisor Name, Visit Date, "Is aide present?" (Yes/No checkbox).
+
+#### POC-to-Supervisory Mapping
+
+The supervisory form dynamically adjusts its questions based on the patient's Plan of Care. The mapping is defined in `poc-to-supervisory-mapping.v2.ts`, which maps POC duty names (e.g., "Bath Shower") to supervisory competency question IDs. The function `applySupervisoryDocumentAdjustmentsV2()` reads the patient's active POC duties and shows or hides the corresponding assessment questions on the supervisory form. If a duty has no mapping entry, it is silently skipped with a warning logged.
 
 **Supervisory Tasks (~40 tasks, each rated: Meets / Needs Improvement / N/A):**
 

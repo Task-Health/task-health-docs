@@ -345,9 +345,12 @@ createQuestionGenerationRule({
 
 ### 5.2 Data Fed to the Prompt
 
-`prepareInputs()` gathers two data sources:
-1. **patientAssessmentFormattedQuestions** — ALL Patient Assessment sections' questions + answers, formatted as "Label: value" text
-2. **standaloneFormattedQuestions** — POC-specific standalone questions (patient preferences like "needs aide for bathroom", "needs aide for shopping", etc.)
+`prepareInputs()` (in the rule file) gathers two data sources:
+
+1. **patientAssessmentFormattedQuestions** — Fetches Patient Assessment data via `getPatientAssessmentFromContext()`, then formats PA questions via `formatQuestionGroups()` into "Label: value" text for all sections
+2. **standaloneFormattedQuestions** — POC-specific standalone questions (e.g., `needsAideBathroomShower`, `needsAideShopping`, `needsAideMedicalAppointments`, `needsAideHairShaving`, `needsAideMealPrep`, `needsAssistanceFeeding`)
+
+**Note:** `prepareInputs()` currently does **NOT** pass `patient.service_type` to the prompt — service type is stored on the patient record (see PATIENTS.md) but is not included in the AI context for duty selection.
 
 **User prompt:**
 ```
@@ -493,19 +496,32 @@ How to extract and process text values: multi-select parsing, narrative reading,
 
 #### Section 6 — OUTPUT FORMAT (~35 lines)
 
+The POC generation returns structured JSON (not just text):
+
 ```json
 {
   "type": "POC",
   "result": {
     "items": [
-      { "duty": "Bath Shower", "frequency": "Every visit", "notes": null }
+      { "item": "Bath Shower", "attributes": { "type": "EveryVisit" }, "notes": null },
+      { "item": "Remind to take medication", "attributes": { "type": "EveryVisit" }, "notes": null },
+      { "item": "Shopping and Errands", "attributes": { "type": "OnDaysOfWeek" }, "notes": null },
+      { "item": "Assist with home exercise program", "attributes": { "type": "AsRequestedByPatient" }, "notes": null }
     ],
-    "specialInstructions": "N/A"
+    "specialInstructions": "text or N/A"
   }
 }
 ```
 
-### 5.4 Why a Rules Engine (Not Free-Form AI)
+The `attributes.type` field determines the frequency shown on mobile and PDF. Valid values: `"EveryVisit"`, `"OnDaysOfWeek"`, `"AsRequestedByPatient"`.
+
+### 5.4 Answer Processing
+
+Results are processed in `PatientDocumentAITextGenerationCtrl.ts:243`:
+- `case "POC": answer = response.result.items` — the items array is extracted and saved to the `patient_documents_answer` table
+- Special instructions are saved separately via `savePocSpecialInstructionsAnswer()`
+
+### 5.5 Why a Rules Engine (Not Free-Form AI)
 
 1. **Regulatory compliance** — POC duties must be clinically justified by PA findings
 2. **Reproducibility** — Same PA answers should always produce same POC duties

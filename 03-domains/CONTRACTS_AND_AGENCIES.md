@@ -131,9 +131,24 @@ When a contract is linked to a patient (Patient → Administrative → Contracts
 
 ---
 
-## 6. POC Code Mapping
+## 6. POC Code Mapping (IVR / HHA Exchange Codes)
 
-HHA Exchange IVR codes are **per-agency**, configured at `/app/poc-code-mapping` in the admin panel. When caregivers use HHA Exchange's IVR phone system to clock in/out, they punch these codes to report tasks completed.
+**What this is:** 3-digit numeric codes (e.g., "101", "606") that caregivers (HHAs/PCAs) punch into HHA Exchange's IVR phone system when clocking in/out to report which duties they performed during a visit.
+
+**Two configuration surfaces:**
+1. **Agency Portal** (go.task-health.com) — agencies map their own IVR codes to POC duties. API: `GET/POST /rn/agencies/:id/.../rn-platform/poc-codes`. Backend: `src/modules/rn_platform/rn_poc_code_mapping/`.
+2. **Admin Webapp** (app.taskshealth.com) — admin configures at `/app/poc-code-mapping`.
+
+**How codes flow to PDF:**
+- Default codes defined in `poc-item-default-code-values.ts` (per duty, per section: 100s = Personal Care, 200s = Treatment, 300s = Nutrition, etc.)
+- Agency-specific overrides stored in `rn_platform_poc_item_code` table (V1526)
+- Codes only appear on PDF if `plan_of_care_item_code_pdf_enable.is_pdf_enabled = true` for that agency
+- Adapter merges defaults with agency overrides via `mergePocItemsWithAgencyCodes()` in `poc-code-mapping.bl.ts`
+- Rendered on PDF as parenthesized suffix: e.g., "Bath Shower (101)"
+
+**DB tables:**
+- `rn_platform_poc_item_code` — per-agency code overrides (columns: `agency_id`, `item_name`, `agency_code`, `default_code`, `created_at/by`, `updated_at/by`)
+- `plan_of_care_item_code_pdf_enable` — per-agency flag to show/hide codes on PDF (columns: `agency_id`, `is_pdf_enabled`)
 
 ---
 

@@ -224,6 +224,7 @@ Only one principal diagnosis per contract. Multiple "other pertinent" diagnoses 
 | assigned_sales_rep | INT | agency_member(id) | |
 | source | INT | referral_source(id) | |
 | created_at | TIMESTAMPTZ NOT NULL | | |
+| service_type | TEXT NULL | | Set during task creation Step 3 ("Broadcast New Assessment" → "Visit Details") from go.task-health.com. Dropdown options defined in `rn-platform-website` `ServiceTypeField.tsx`: `["HHA", "PCA"]` + "Other" (free text input). Stored via `main.controller.ts:980` in `updatePatientInfoAfterSubmission()`. Displayed on POC PDF as "Services Needed" but NOT used for duty filtering. |
 | created_by | INT | agency_member(id) | |
 
 ### `patient_certification_period` table (V0729)

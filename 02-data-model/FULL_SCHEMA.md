@@ -190,6 +190,7 @@ Migration: V0090 (`V0090__PatientsTable.sql`)
 | source | INT | YES | referral_source(id) | |
 | created_at | TIMESTAMPTZ | NOT NULL | | |
 | created_by | INT | YES | agency_member(id) | |
+| service_type | TEXT | YES | | Set at broadcast Step 3 from agency portal. Values: "HHA", "PCA", or other free text |
 
 ---
 
@@ -1035,17 +1036,21 @@ Constraints: Either treatment_id or patient_task_instance_id must be set (not bo
 
 ## plan_of_care_item
 
-Description: Reference table of all POC duty items. 42 duties across 6 categories.
+Description: LEGACY POC system duty items. NOT a global reference table — items are scoped per agency/office via `planOfCareTypeId` (FK to `plan_of_care_type`). Each row is a selectable duty within a plan of care type.
 Migration: V0095
 
 | Column | Type | Nullable | FK | Description |
 |--------|------|----------|-----|-------------|
-| id | SERIAL PK | NOT NULL | | |
+| id | SERIAL PK | NOT NULL | | Primary key |
 | type | TEXT | NOT NULL | | Item type |
 | label | TEXT | NOT NULL | | Display text |
 | section_name | TEXT | NOT NULL | | Category (Personal Care, Nutritional, etc.) |
 | code | TEXT | NOT NULL | | IVR/HHA code |
-| order_in_section | INT | NOT NULL | | Sort order |
+| order_in_section | INT | NOT NULL | | Sort order within section |
+| planOfCareTypeId | INT | NOT NULL | plan_of_care_type(id) | Scopes item to a specific POC type (per agency/office) |
+| documentItemType | TEXT | YES | | Optional document item type classifier |
+| is_personal_care | BOOLEAN | NOT NULL | | Whether this is a personal care duty |
+| is_active | BOOLEAN | NOT NULL | | Soft-active flag |
 
 ---
 
@@ -1091,8 +1096,12 @@ Migration: V1526
 | Column | Type | Nullable | FK | Description |
 |--------|------|----------|-----|-------------|
 | agency_id | INT | NOT NULL | agency(id) | |
-| plan_of_care_item_id | TEXT | NOT NULL | | Item identifier |
-| code | TEXT | NOT NULL | | Agency-specific code |
+| plan_of_care_item_id | TEXT | NOT NULL | | Duty name string (e.g., "Bath Shower") |
+| code | TEXT | NOT NULL | | IVR code |
+| created_at | TIMESTAMPTZ | NOT NULL | | |
+| created_by | INT | NOT NULL | | |
+| updated_at | TIMESTAMPTZ | YES | | |
+| updated_by | INT | YES | | |
 
 Constraints: PRIMARY KEY(agency_id, plan_of_care_item_id)
 
@@ -1107,6 +1116,10 @@ Migration: V1526
 |--------|------|----------|-----|-------------|
 | agency_id | INT PK | NOT NULL | agency(id) | UNIQUE |
 | is_enabled | BOOLEAN | NOT NULL | | |
+| created_at | TIMESTAMPTZ | NOT NULL | | |
+| created_by | INT | NOT NULL | | |
+| updated_at | TIMESTAMPTZ | YES | | |
+| updated_by | INT | YES | | |
 
 ---
 

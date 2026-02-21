@@ -51,10 +51,12 @@ The supervisory form evaluates the aide's performance against the current POC du
 
 The key mapping is handled by `poc-to-supervisory-mapping.v2.ts` and `applySupervisoryDocumentAdjustmentsV2()`:
 
-1. System reads the patient's current active POC
-2. Identifies which of the 42 duties are selected in the POC
-3. The supervisory form dynamically shows only the relevant duty evaluation questions
-4. For each selected POC duty, the RN rates the aide's performance
+1. System reads the patient's current active RN Platform POC document (`patient_documents_scheduled_visit` + `patient_documents_answers`)
+2. Extracts selected duty names from the POC answer (array of `{ item: string, attributes: TaskWhenToPerform, notes }`)
+3. Maps each duty name to a supervisory competency question ID (e.g., `"Bath Shower"` → `"assistsWithBathingInclBedbound"`)
+4. The supervisory form dynamically shows only the relevant duty evaluation questions
+5. For each selected POC duty, the RN rates the aide's performance
+6. If a duty has no mapping entry → silently skipped (warning logged), no competency check for that duty
 
 **Form structure:**
 - Patient information (auto-populated from database)
@@ -76,30 +78,37 @@ Same pipeline as other documents:
 
 ## 4. POC-to-Supervisory Mapping Detail
 
-**Key file:** `taskhealth_server2/src/rn-platform/.../poc-to-supervisory-mapping.v2.ts`
+**Key file:** `taskhealth_server2/src/modules/patient_documents/html/paraprofessional-supervisory/v2/poc-to-supervisory-mapping.v2.ts`
 
 **Function:** `applySupervisoryDocumentAdjustmentsV2()`
 
 **How it works:**
 
 ```
-Plan of Care (active, most recent)
+RN Platform POC Document (most recent submitted)
   |
-  +-- plan_of_care_item_answer (selected duties)
+  +-- patient_documents_answers (POC question answer = zPOCItemsDocumentAnswer[])
         |
-        +-- plan_of_care_item (id, section_name, label, code)
+        +-- Each item has: { item: "Bath Shower", attributes: {...}, notes: null }
               |
-              | (mapping table in poc-to-supervisory-mapping.v2.ts)
+              | (string name matching via poc-to-supervisory-mapping.v2.ts)
               v
         Supervisory Form Questions
         (dynamically show/hide based on which POC duties are selected)
+
+Mapping examples:
+  "Bath Shower"                → "assistsWithBathingInclBedbound"
+  "Remind to take medication"  → "providesMedicationReminders"
+  "Ostomy / Catheter Care"     → "providesOstomyCatheterCare"
+  (40 mappings total in v2)
 ```
 
 1. When RN opens the supervisory form, the system:
-   - Fetches the patient's most recent submitted POC
-   - Gets all `plan_of_care_item_answer` records (selected duties)
-   - Maps each POC duty to corresponding supervisory evaluation questions
+   - Fetches the patient's most recent submitted RN Platform POC document
+   - Reads the POC answer items (duty names as strings from the `patient_documents_answers` table)
+   - Maps each duty name to corresponding supervisory evaluation question IDs using the mapping file
    - Sets visibility flags on the supervisory form content items
+   - Duties with no mapping entry are silently skipped (warning logged)
 
 2. Duty categories mapped:
    - **Personal Care** — bathing, grooming, dressing, toileting, etc.
@@ -119,11 +128,10 @@ Plan of Care (active, most recent)
 | Table | Operation | Step |
 |-------|-----------|------|
 | patient_task, patient_task_instance | INSERT | Task creation |
-| plan_of_care | READ | Form setup (get active POC) |
-| plan_of_care_item_answer | READ | Form setup (get selected duties) |
-| plan_of_care_item | READ | Mapping to supervisory questions |
+| patient_documents_scheduled_visit | READ | Form setup (get patient's most recent POC document) |
+| patient_documents_answers | READ | Form setup (get POC duty items from answer JSON) |
 | patient_documents_scheduled_visit | UPDATE | Submission |
-| patient_documents_answers | INSERT/UPDATE | Form filling |
+| patient_documents_answers | INSERT/UPDATE | Form filling (supervisory answers) |
 | patient_document_ai_review | INSERT | AI review (if enabled) |
 | patient_document_generation_queue | INSERT | PDF generation |
 
@@ -141,7 +149,8 @@ Plan of Care (active, most recent)
 
 | Component | Repo | Key Files |
 |-----------|------|-----------|
-| POC → Supervisory mapping | taskhealth_server2 | `src/rn-platform/.../poc-to-supervisory-mapping.v2.ts` |
-| Supervisory adjustments | taskhealth_server2 | `applySupervisoryDocumentAdjustmentsV2()` |
+| POC → Supervisory mapping | taskhealth_server2 | `src/modules/patient_documents/html/paraprofessional-supervisory/v2/poc-to-supervisory-mapping.v2.ts` |
+| Supervisory adjustments | taskhealth_server2 | `applySupervisoryDocumentAdjustmentsV2()` in same directory |
+| POC answer reading | taskhealth_server2 | `src/modules/patient_documents/html/common/html-common/patient-document-html.utils.ts` — `getPocQuestionWithAnswer()` |
 | Form rendering | taskhealth-mobile2 | Standard document question components |
 | PDF template | html-to-pdf-lambda | `MEDFLYT_PARAPROFESSIONAL_SUPERVISORY_HTML` template |

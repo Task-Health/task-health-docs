@@ -303,26 +303,51 @@ patient_documents_scheduled_visit (answers linked via schedule_visit_document_id
 - These answers propagate across documents — e.g., allergies entered in Patient Assessment appear in CMS-485.
 - The `nursing_question_answer` table is the **single source of truth** for cross-document data.
 
-### Pattern 7: Plan of Care → Duties → Agency Code Mapping
+### Pattern 7: Plan of Care — Two Parallel Systems
+
+**System A: Legacy POC** (caregiver-facing, per-agency duties)
 
 ```
-plan_of_care_item             (42 duty reference items)
+plan_of_care_item             (per-agency duty reference items)
         |
-        | plan_of_care_item
+        | plan_of_care_item (FK)
         v
 plan_of_care_item_answer      (selected duties for a specific POC)
         |
         | plan_of_care (FK)
         v
-plan_of_care                  (POC document instance, linked to task_instance)
-
-rn_platform_poc_item_code     (per-agency custom IVR/HHA codes)
-plan_of_care_item_code_pdf_enable (feature flag per agency)
+plan_of_care                  (POC document instance, linked to treatment)
 ```
 
-- The POC uses a fixed set of 42 duty items across 6 categories.
-- Each agency can customize the codes shown on PDFs via `rn_platform_poc_item_code`.
-- The POC document links to a `patient_task_instance` (or legacy `treatment`).
+- Legacy POC duties are stored in `plan_of_care_item` table, scoped per agency via `planOfCareTypeId` → `plan_of_care_type`.
+- NOT used by the RN Platform.
+
+**System B: RN Platform POC** (RN-facing, hardcoded in TypeScript)
+
+```
+patient_documents_types_versions  (JSONB content with itemType: "POC", POCItems array)
+        |
+        | (defines duty list for mobile + adapter)
+        v
+patient_documents_answers         (POC answers: zPOCItemsDocumentAnswer[])
+        |
+        | (read by adapter at PDF generation)
+        v
+TypeScript adapter (v1-v7)        (maps answers → HTML template fields)
+        |
+        v
+HTML template                     (renders checkboxes + frequency + IVR codes)
+
+rn_platform_poc_item_code         (per-agency custom IVR/HHA Exchange codes)
+plan_of_care_item_code_pdf_enable (flag per agency: show codes on PDF)
+```
+
+- RN Platform POC duties are defined in TypeScript constants (`planOfCareItemsV7`) — NOT in a DB table.
+- Duty list flows through: form builder JSONB (`POCItems`) → AI prompt → mobile → adapter → HTML/PDF.
+- Answer format: `{ item: string, attributes: TaskWhenToPerform, notes: string | null }` where `TaskWhenToPerform = EveryVisit | OnDaysOfWeek { frequency } | AsRequestedByPatient`.
+- Each agency can customize IVR codes via `rn_platform_poc_item_code` (3-digit codes for HHA Exchange phone system).
+- `plan_of_care_item_code_pdf_enable` controls whether codes appear on the agency's PDFs.
+- POC duties also map to supervisory competency questions via `poc-to-supervisory-mapping.v2.ts`.
 
 ### Pattern 8: Comm Center → Tickets → Messages
 
