@@ -248,10 +248,10 @@ Track completion status here. Update as docs are filled in:
 | CONTRACTS_AND_AGENCIES.md | ✅ Created | ~180 lines. Setup fields, billing/rounding, EDI, issue types, template overrides |
 | NOTIFICATIONS_AND_COMMS.md | ✅ Created | ~130 lines. SMS, FCM, Socket.IO, telephony agent |
 | RN_MOBILE_APP.md | ✅ Created | ~200 lines. 25+ question types, 4 AI features, answer saving, signatures |
-| START_OF_CARE_FLOW.md | ❌ Not created | Needs end-to-end flow |
-| REASSESSMENT_FLOW.md | ❌ Not created | Needs flow documentation |
-| SUPERVISORY_VISIT_FLOW.md | ❌ Not created | Needs flow documentation |
-| NURSE_ONBOARDING_FLOW.md | ❌ Not created | Needs onboarding repo exploration |
+| START_OF_CARE_FLOW.md | ✅ Created | ~250 lines. Full 11-step flow, tables touched, decision points, error handling |
+| REASSESSMENT_FLOW.md | ✅ Created | ~120 lines. Differences from SOC, recurrence cycle, cert period continuity |
+| SUPERVISORY_VISIT_FLOW.md | ✅ Created | ~150 lines. POC↔Supervisory mapping, duty evaluation, code paths |
+| NURSE_ONBOARDING_FLOW.md | ✅ Created | ~100 lines. 5-step flow, HR infrastructure, compliance, open areas |
 | STRIPE.md | ❌ Not created | Needs code exploration |
 | SENDGRID.md | ❌ Not created | Needs code exploration |
 | GOOGLE_CALENDAR.md | ❌ Not created | Needs code exploration |
