@@ -242,8 +242,8 @@ Track completion status here. Update as docs are filled in:
 | TASK_LIFECYCLE.md | ✅ Substantial | ~692 lines |
 | CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (renamed from CLINICAL.md) |
 | AI_SYSTEM.md | ✅ Created | ~350 lines. 26 AI questions, review system, POC rules engine, ICD codes, CMS-485 mapping |
-| BILLING_AND_CREDITS.md | ⚠️ Partial | ~130 lines. Credits, authorizations, pay rates. Needs billing flow deep dive |
-| USERS_AND_AUTH.md | ⚠️ Partial | ~100 lines. Three user types, auth, certifications, RN matching. Needs roles deep dive |
+| BILLING_AND_CREDITS.md | ✅ Substantial | ~220 lines. Credit flow, invoice chain, billing rates, service/payroll codes, pay rate hierarchy |
+| USERS_AND_AUTH.md | ✅ Substantial | ~220 lines. Auth tokens, roles/permissions, caregiver profile, multi-agency, gotchas |
 | PATIENTS.md | ✅ Created | ~250 lines. 6 profile tabs, 12 statuses, cert periods, diagnosis codes, schema |
 | CONTRACTS_AND_AGENCIES.md | ✅ Created | ~180 lines. Setup fields, billing/rounding, EDI, issue types, template overrides |
 | NOTIFICATIONS_AND_COMMS.md | ✅ Created | ~130 lines. SMS, FCM, Socket.IO, telephony agent |
