@@ -237,8 +237,8 @@ Track completion status here. Update as docs are filled in:
 | ARCHITECTURE.md | ✅ Substantial | ~266 lines |
 | TECH_STACK.md | ✅ Substantial | ~191 lines |
 | REPO_MAP.md | ❌ Not created | Needs all repos documented |
-| FULL_SCHEMA.md | ⚠️ Partial | ~352 lines, only ~15 core tables. Needs ALL tables from migrations |
-| ENTITY_RELATIONSHIPS.md | ⚠️ Partial | ~211 lines. Needs complete FK map |
+| FULL_SCHEMA.md | ✅ Substantial | ~600 lines, ~60 core tables across 12 sections. 837-table catalog at bottom |
+| ENTITY_RELATIONSHIPS.md | ✅ Substantial | ~350 lines. Full ERD, 9 junction tables, 8 relationship patterns, FK index reference |
 | TASK_LIFECYCLE.md | ✅ Substantial | ~692 lines |
 | CLINICAL_DOCUMENTS.md | ✅ Substantial | ~1,018 lines (renamed from CLINICAL.md) |
 | AI_SYSTEM.md | ✅ Created | ~350 lines. 26 AI questions, review system, POC rules engine, ICD codes, CMS-485 mapping |
